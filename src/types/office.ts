@@ -40,7 +40,10 @@ export interface OfficeEvent {
 
 /** REST GET /api/hermes/state 的回應形狀 */
 export interface HermesState {
+  active: boolean;
   agents: Agent[];
+  phase: PhaseData | null;
+  /** 正規化後的 phases 陣列（解析層補上） */
   phases: PhaseData[];
 }
 

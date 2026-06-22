@@ -2,7 +2,8 @@ import { useRef, useEffect, useState } from 'react';
 import type { Agent, PhaseData, OfficeEvent, ConnStatus } from '../types/office';
 import Header from './Header';
 import PhaseBar from './PhaseBar';
-import AgentCard from './AgentCard';
+import PhaseTabs from './PhaseTabs';
+import PhaseTabPanel from './PhaseTabPanel';
 import MessageFlow from './MessageFlow';
 import EventLog from './EventLog';
 
@@ -26,6 +27,28 @@ export default function OfficeDashboard({
   const stageRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const [, setTick] = useState(0); // force re-render for MessageFlow positions
+
+  // Tab 選擇 state：初始為目前 active phase，否則第一個
+  const [selectedTabId, setSelectedTabId] = useState<string>(() => {
+    const active = phases.find((p) => p.status === 'active');
+    return active?.id ?? phases[0]?.id ?? 'understand';
+  });
+
+  // 當 active phase 改變時自動切換 tab
+  useEffect(() => {
+    const active = phases.find((p) => p.status === 'active');
+    if (active) {
+      setSelectedTabId(active.id);
+    }
+  }, [phases]);
+
+  // 確保 selectedTabId 對應的 phase 仍存在（若被後端移除則回退）
+  useEffect(() => {
+    const exists = phases.some((p) => p.id === selectedTabId);
+    if (!exists && phases.length > 0) {
+      setSelectedTabId(phases[0].id);
+    }
+  }, [phases, selectedTabId]);
 
   // Re-render MessageFlow when stage resizes
   useEffect(() => {
@@ -65,6 +88,13 @@ export default function OfficeDashboard({
 
       <PhaseBar phases={phases} />
 
+      {/* Phase Tab 列 */}
+      <PhaseTabs
+        phases={phases}
+        selectedTabId={selectedTabId}
+        onSelectTab={setSelectedTabId}
+      />
+
       {/* 載入/錯誤狀態 */}
       {fetchError && (
         <div className="mx-8 mb-4 px-4 py-3 bg-st-err/15 border border-st-err/30 rounded-xl text-st-err text-sm">
@@ -84,19 +114,11 @@ export default function OfficeDashboard({
           cardRefs={cardRefs}
         />
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-[1440px] mx-auto">
-          {agents.map((agent, i) => (
-            <div
-              key={agent.id}
-              ref={registerCardRef(agent.id)}
-              data-agent-id={agent.id}
-              style={{ animationDelay: `${i * 80}ms` }}
-              className="animate-[fade-up_400ms_ease-out_both]"
-            >
-              <AgentCard agent={agent} />
-            </div>
-          ))}
-        </div>
+        <PhaseTabPanel
+          phaseId={selectedTabId}
+          agents={agents}
+          registerCardRef={registerCardRef}
+        />
       </div>
 
       <EventLog events={events} connStatus={connStatus} agents={agents} />

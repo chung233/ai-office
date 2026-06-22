@@ -1,4 +1,4 @@
-import type { HermesState, WsMessage } from '../types/office';
+import type { HermesState, PhaseData, Agent, WsMessage } from '../types/office';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4820';
 const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:4820/ws';
@@ -10,12 +10,20 @@ export async function fetchInitialState(): Promise<HermesState> {
     throw new Error(`無法載入初始狀態（HTTP ${res.status}）`);
   }
   const json: unknown = await res.json();
-  // ponytail: runtime duck-check — server contract is owned by same repo
-  const data = json as HermesState;
-  if (!data.agents || !data.phases) {
-    throw new Error('後端回應格式不符：缺少 agents 或 phases 欄位');
+  const raw = json as Record<string, unknown>;
+  if (!Array.isArray(raw.agents)) {
+    throw new Error('後端回應格式不符：缺少 agents 欄位');
   }
-  return data;
+  // 正規化：後端回 phase (單數/null)，補成 phases 陣列
+  const phases: PhaseData[] = raw.phase && typeof raw.phase === 'object'
+    ? [raw.phase as PhaseData]
+    : [];
+  return {
+    active: !!raw.active,
+    agents: raw.agents as Agent[],
+    phase: (raw.phase as PhaseData) ?? null,
+    phases,
+  };
 }
 
 /**
